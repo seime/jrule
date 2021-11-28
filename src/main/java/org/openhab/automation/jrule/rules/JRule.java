@@ -32,6 +32,7 @@ import org.openhab.automation.jrule.internal.handler.JRuleEventHandler;
 import org.openhab.automation.jrule.internal.handler.JRuleVoiceHandler;
 import org.openhab.automation.jrule.items.JRulePercentType;
 import org.openhab.automation.jrule.rules.value.JRuleOnOffValue;
+import org.openhab.core.transform.TransformationException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -266,5 +267,9 @@ public class JRule {
 
     public void setRuleLogName(String logName) {
         this.logName = logName;
+    }
+
+    public String transform(String function, String source) throws TransformationException {
+        return JRuleEventHandler.get().transform(function, source);
     }
 }

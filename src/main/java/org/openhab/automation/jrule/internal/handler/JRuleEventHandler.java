@@ -50,6 +50,8 @@ import org.openhab.core.library.types.PlayPauseType;
 import org.openhab.core.library.types.StopMoveType;
 import org.openhab.core.library.types.StringType;
 import org.openhab.core.library.types.UpDownType;
+import org.openhab.core.transform.TransformationException;
+import org.openhab.core.transform.TransformationService;
 import org.openhab.core.types.Command;
 import org.openhab.core.types.State;
 import org.slf4j.Logger;
@@ -70,6 +72,8 @@ public class JRuleEventHandler {
     private EventPublisher eventPublisher;
 
     private ItemRegistry itemRegistry;
+
+    private TransformationService transformationService;
 
     private final Logger logger = LoggerFactory.getLogger(JRuleEventHandler.class);
 
@@ -138,6 +142,10 @@ public class JRuleEventHandler {
             return;
         }
         sendCommand(itemName, hsbType);
+    }
+
+    public String transform(String function, String source) throws TransformationException {
+        return transformationService.transform(function, source);
     }
 
     public void sendCommand(String itemName, JRuleRgbValue rgbValue) {
@@ -471,5 +479,9 @@ public class JRuleEventHandler {
 
     private void logError(String message, Object... parameters) {
         JRuleLog.error(logger, LOG_NAME_EVENT, message, parameters);
+    }
+
+    public void setTransformationService(TransformationService transformationService) {
+        this.transformationService = transformationService;
     }
 }

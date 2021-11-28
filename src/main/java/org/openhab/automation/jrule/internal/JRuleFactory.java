@@ -22,6 +22,7 @@ import org.openhab.automation.jrule.internal.events.JRuleEventSubscriber;
 import org.openhab.automation.jrule.internal.handler.JRuleHandler;
 import org.openhab.core.events.EventPublisher;
 import org.openhab.core.items.ItemRegistry;
+import org.openhab.core.transform.TransformationService;
 import org.openhab.core.voice.VoiceManager;
 import org.osgi.framework.FrameworkUtil;
 import org.osgi.service.component.annotations.Activate;
@@ -47,6 +48,7 @@ public class JRuleFactory {
     private final EventPublisher eventPublisher;
     private final VoiceManager voiceManager;
     private final JRuleHandler jRuleHandler;
+    private final TransformationService transformationService;
     @Nullable
     private static CompletableFuture<Void> initFuture = null;
 
@@ -58,13 +60,15 @@ public class JRuleFactory {
     @Activate
     public JRuleFactory(Map<String, Object> properties, final @Reference JRuleEventSubscriber eventSubscriber,
             final @Reference ItemRegistry itemRegistry, final @Reference EventPublisher eventPublisher,
-            final @Reference VoiceManager voiceManager) {
+            final @Reference VoiceManager voiceManager, @Reference TransformationService transformationService) {
         this.itemRegistry = itemRegistry;
         this.eventSubscriber = eventSubscriber;
         this.eventPublisher = eventPublisher;
         this.voiceManager = voiceManager;
+        this.transformationService = transformationService;
 
-        jRuleHandler = new JRuleHandler(properties, itemRegistry, eventPublisher, eventSubscriber, voiceManager);
+        jRuleHandler = new JRuleHandler(properties, itemRegistry, eventPublisher, eventSubscriber, voiceManager,
+                transformationService);
         createDelayedInitialization(getInitDelaySeconds(properties));
     }
 
