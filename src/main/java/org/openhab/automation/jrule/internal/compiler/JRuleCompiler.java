@@ -12,17 +12,24 @@
  */
 package org.openhab.automation.jrule.internal.compiler;
 
+import static org.openhab.automation.jrule.internal.JRuleConstants.JAVA_FILE_TYPE;
+
 import java.io.File;
 import java.io.FilenameFilter;
+import java.io.IOException;
 import java.lang.reflect.Modifier;
 import java.net.MalformedURLException;
 import java.net.URL;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import javax.tools.Diagnostic;
 import javax.tools.DiagnosticCollector;
@@ -150,8 +157,7 @@ public class JRuleCompiler {
 
         logDebug("ClassNameSetSize: {}", classNames.size());
         Arrays.stream(javaItems)
-                .filter(javaItem -> !classNames
-                        .contains(JRuleUtil.removeExtension(javaItem.getName(), JRuleConstants.JAVA_FILE_TYPE)))
+                .filter(javaItem -> !classNames.contains(JRuleUtil.removeExtension(javaItem.getName(), JAVA_FILE_TYPE)))
                 .forEach(javaItem -> compile(javaItem, itemsClassPath));
         classNames.clear();
     }
@@ -176,13 +182,20 @@ public class JRuleCompiler {
             rulesClassPath = rulesClassPath.concat(extLibPath);
         }
         logDebug("Compiling rules in folder: {}", jRuleConfig.getRulesDirectory());
-        final File[] javaFiles = new File(jRuleConfig.getRulesDirectory()).listFiles(JRuleFileNameFilter.JAVA_FILTER);
-        if (javaFiles == null || javaFiles.length == 0) {
-            logInfo("Found no java rules to compile and use in folder: {}, no rules are loaded",
-                    jRuleConfig.getRulesDirectory());
-            return;
+
+        try (Stream<Path> paths = Files.walk(Paths.get(jRuleConfig.getRulesDirectory()))) {
+            List<File> ruleJavaFiles = paths.filter(Files::isRegularFile) // is a file
+                    .filter(f -> f.getFileName().toString().endsWith(JAVA_FILE_TYPE)).map(Path::toFile)
+                    .collect(Collectors.toList());
+            if (!ruleJavaFiles.isEmpty()) {
+                compile(ruleJavaFiles, rulesClassPath);
+            } else {
+                logWarn("Found no java rules to compile and use in folder {}", jRuleConfig.getRulesDirectory());
+            }
+        } catch (IOException e) {
+            logError("Error listing java files in folder: {}", jRuleConfig.getRulesDirectory(), e);
+
         }
-        compile(Arrays.asList(javaFiles), rulesClassPath);
     }
 
     public List<URL> getExtLibsAsUrls() {
@@ -227,7 +240,7 @@ public class JRuleCompiler {
 
     private static class JRuleFileNameFilter implements FilenameFilter {
 
-        private static final JRuleFileNameFilter JAVA_FILTER = new JRuleFileNameFilter(JRuleConstants.JAVA_FILE_TYPE);
+        private static final JRuleFileNameFilter JAVA_FILTER = new JRuleFileNameFilter(JAVA_FILE_TYPE);
         private static final JRuleFileNameFilter CLASS_FILTER = new JRuleFileNameFilter(JRuleConstants.CLASS_FILE_TYPE);
         private static final JRuleFileNameFilter JAR_FILTER = new JRuleFileNameFilter(JRuleConstants.JAR_FILE_TYPE);
 
@@ -253,5 +266,9 @@ public class JRuleCompiler {
 
     private void logError(String message, Object... parameters) {
         JRuleLog.error(logger, LOG_NAME_COMPILER, message, parameters);
+    }
+
+    private void logWarn(String message, Object... parameters) {
+        JRuleLog.warn(logger, LOG_NAME_COMPILER, message, parameters);
     }
 }

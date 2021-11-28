@@ -122,7 +122,7 @@ public class JRuleRulesWatcher implements Runnable {
             logDebug("Watcher Thread interrupted, closing down");
             return;
         } catch (Exception e) {
-            logError("Folder watcher terminated due to exception", e);
+            logError("Folder watcher terminated due to exception {}", e);
             return;
         }
     }
