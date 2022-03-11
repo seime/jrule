@@ -1,13 +1,13 @@
 /**
  * Copyright (c) 2010-2021 Contributors to the openHAB project
- *
+ * <p>
  * See the NOTICE file(s) distributed with this work for additional
  * information.
- *
+ * <p>
  * This program and the accompanying materials are made available under the
  * terms of the Eclipse Public License 2.0 which is available at
  * http://www.eclipse.org/legal/epl-2.0
- *
+ * <p>
  * SPDX-License-Identifier: EPL-2.0
  */
 package org.openhab.automation.jrule.internal.engine;
@@ -50,10 +50,14 @@ import org.openhab.automation.jrule.rules.JRule;
 import org.openhab.automation.jrule.rules.JRuleEvent;
 import org.openhab.automation.jrule.rules.JRuleLogName;
 import org.openhab.automation.jrule.rules.JRuleName;
+import org.openhab.automation.jrule.rules.JRulePrecondition;
 import org.openhab.automation.jrule.rules.JRuleTrigger;
 import org.openhab.automation.jrule.rules.JRuleWhen;
 import org.openhab.core.common.ThreadPoolManager;
 import org.openhab.core.events.Event;
+import org.openhab.core.items.Item;
+import org.openhab.core.items.ItemNotFoundException;
+import org.openhab.core.items.ItemRegistry;
 import org.openhab.core.items.events.GroupItemStateChangedEvent;
 import org.openhab.core.items.events.ItemCommandEvent;
 import org.openhab.core.items.events.ItemEvent;
@@ -106,6 +110,7 @@ public class JRuleEngine implements PropertyChangeListener {
     private final Set<CompletableFuture<Void>> timers = new HashSet<>();
     protected final ScheduledExecutorService scheduler = ThreadPoolManager
             .getScheduledPool(ThreadPoolManager.THREAD_POOL_NAME_COMMON);
+    private ItemRegistry itemRegistry;
 
     private JRuleEngine() {
     }
@@ -176,6 +181,8 @@ public class JRuleEngine implements PropertyChangeListener {
                     ? method.getDeclaredAnnotation(JRuleLogName.class)
                     : null;
 
+            final JRulePrecondition[] preconditions = method.getAnnotationsByType(JRulePrecondition.class);
+
             final JRuleWhen[] jRuleWhens = method.getAnnotationsByType(JRuleWhen.class);
             logDebug("Got jrule whens size: {}", jRuleWhens.length);
             final Parameter[] parameters = method.getParameters();
@@ -203,16 +210,18 @@ public class JRuleEngine implements PropertyChangeListener {
                             jRuleWhen.from(), jRuleWhen.to(), jRuleWhen.update(), jRuleWhen.item(), method,
                             jRuleEventPresent, getDoubleFromAnnotation(jRuleWhen.lt()),
                             getDoubleFromAnnotation(jRuleWhen.lte()), getDoubleFromAnnotation(jRuleWhen.gt()),
-                            getDoubleFromAnnotation(jRuleWhen.gte()), getDoubleFromAnnotation(jRuleWhen.eq()));
+                            getDoubleFromAnnotation(jRuleWhen.gte()), getDoubleFromAnnotation(jRuleWhen.eq()),
+                            preconditions);
                     itemNames.add(jRuleWhen.item());
                 } else if (jRuleWhen.hours() != -1 || jRuleWhen.minutes() != -1 || jRuleWhen.seconds() != -1
                         || !jRuleWhen.cron().isEmpty()) {
                     // JRuleWhen for a time trigger
-                    addTimedExecution(jRule, logName, jRuleName.value(), jRuleWhen, method, jRuleEventPresent);
+                    addTimedExecution(jRule, logName, jRuleName.value(), jRuleWhen, method, jRuleEventPresent,
+                            preconditions);
                 } else if (!jRuleWhen.channel().isEmpty()) {
                     // JRuleWhen for a channel
                     addChannelExecutionContext(jRule, logName, jRuleWhen.channel(), jRuleName.value(), method,
-                            jRuleEventPresent);
+                            jRuleEventPresent, preconditions);
                 }
             }
         }
@@ -265,14 +274,14 @@ public class JRuleEngine implements PropertyChangeListener {
     }
 
     private synchronized void addTimedExecution(JRule jRule, String logName, String jRuleName, JRuleWhen jRuleWhen,
-            Method method, boolean jRuleEventPresent) {
+            Method method, boolean jRuleEventPresent, JRulePrecondition[] preconditions) {
         CompletableFuture<Void> future = (!jRuleWhen.cron().isEmpty()) ? createTimer(logName, jRuleWhen.cron())
                 : createTimer(logName, jRuleWhen.hours(), jRuleWhen.minutes(), jRuleWhen.seconds());
         timers.add(future);
         JRuleLog.info(logger, logName, "Scheduling timer for rule: {} hours: {} minutes: {} seconds: {} cron: {}",
                 jRuleWhen.hours(), jRuleWhen.minutes(), jRuleWhen.seconds(), jRuleWhen.cron());
         JRuleExecutionContext executionContext = new JRuleExecutionContext(jRule, logName, method, jRuleName,
-                jRuleEventPresent);
+                jRuleEventPresent, preconditions);
         Consumer<Void> consumer = t -> {
             try {
                 invokeRule(executionContext, jRuleEventPresent ? new JRuleEvent("") : null);
@@ -282,27 +291,27 @@ public class JRuleEngine implements PropertyChangeListener {
         };
         future.thenAccept(consumer).thenAccept(s -> {
             JRuleLog.info(logger, logName, "Timer has finished");
-            addTimedExecution(jRule, logName, jRuleName, jRuleWhen, method, jRuleEventPresent);
+            addTimedExecution(jRule, logName, jRuleName, jRuleWhen, method, jRuleEventPresent, preconditions);
         });
     }
 
     private void addExecutionContext(JRule jRule, String logName, String itemClass, String ruleName, String trigger,
             String from, String to, String update, String itemName, Method method, boolean eventParameterPresent,
-            Double lt, Double lte, Double gt, Double gte, Double eq) {
+            Double lt, Double lte, Double gt, Double gte, Double eq, JRulePrecondition[] preconditions) {
         List<JRuleExecutionContext> contextList = itemToExecutionContexts.computeIfAbsent(itemName,
                 k -> new ArrayList<>());
         final JRuleExecutionContext context = new JRuleExecutionContext(jRule, logName, trigger, from, to, update,
-                ruleName, itemClass, itemName, method, eventParameterPresent, lt, lte, gt, gte, eq);
+                ruleName, itemClass, itemName, method, eventParameterPresent, lt, lte, gt, gte, eq, preconditions);
         JRuleLog.debug(logger, logName, "ItemContextList add context: {}", context);
         contextList.add(context);
     }
 
     private void addChannelExecutionContext(JRule jRule, String logName, String channel, String ruleName, Method method,
-            boolean eventParameterPresent) {
+            boolean eventParameterPresent, JRulePrecondition[] preconditions) {
         List<JRuleExecutionContext> contextList = channelToExecutionContexts.computeIfAbsent(channel,
                 k -> new ArrayList<>());
         final JRuleExecutionContext context = new JRuleExecutionContext(jRule, logName, null, null, null, null,
-                ruleName, null, null, method, eventParameterPresent, null, null, null, null, null);
+                ruleName, null, null, method, eventParameterPresent, null, null, null, null, null, preconditions);
         JRuleLog.debug(logger, logName, "ChannelContextList add context: {}", context);
         contextList.add(context);
     }
@@ -471,18 +480,62 @@ public class JRuleEngine implements PropertyChangeListener {
 
     private synchronized void invokeRule(JRuleExecutionContext context, JRuleEvent event) {
         JRuleLog.debug(logger, context.getLogName(), "Invoking rule for context: {}", context);
-        final JRule rule = context.getJrule();
-        final Method method = context.getMethod();
-        rule.setRuleLogName(context.getLogName());
-        try {
-            final Object invoke = context.isEventParameterPresent() ? method.invoke(rule, event) : method.invoke(rule);
-        } catch (IllegalAccessException | IllegalArgumentException | SecurityException e) {
-            JRuleLog.error(logger, context.getRuleName(), "Error {}", e);
-        } catch (InvocationTargetException e) {
-            Throwable ex = e.getCause() != null ? e.getCause() : null;
-            JRuleLog.error(logger, context.getRuleName(), "Error message: {}", ex.getMessage());
-            JRuleLog.error(logger, context.getRuleName(), "Error Stacktrace: {}", getStackTraceAsString(ex));
+
+        // Check preconditions
+        boolean preconditionsSatisified = true;
+        JRulePrecondition[] preconditions = context.getPreconditions();
+        if (preconditions != null) {
+            for (JRulePrecondition precondition : preconditions) {
+                preconditionsSatisified &= evaluatePrecondition(context, precondition);
+            }
         }
+
+        if (preconditionsSatisified) {
+
+            final JRule rule = context.getJrule();
+            final Method method = context.getMethod();
+            rule.setRuleLogName(context.getLogName());
+            try {
+                final Object invoke = context.isEventParameterPresent() ? method.invoke(rule, event)
+                        : method.invoke(rule);
+            } catch (IllegalAccessException | IllegalArgumentException | SecurityException e) {
+                JRuleLog.error(logger, context.getRuleName(), "Error {}", e);
+            } catch (InvocationTargetException e) {
+                Throwable ex = e.getCause() != null ? e.getCause() : null;
+                JRuleLog.error(logger, context.getRuleName(), "Error message: {}", ex.getMessage());
+                JRuleLog.error(logger, context.getRuleName(), "Error Stacktrace: {}", getStackTraceAsString(ex));
+            }
+        } else {
+            JRuleLog.debug(logger, context.getLogName(), "Preconditions failed for context: {}", context);
+
+        }
+    }
+
+    private boolean evaluatePrecondition(JRuleExecutionContext context, JRulePrecondition precondition) {
+        try {
+            Item item = itemRegistry.getItem(precondition.item());
+            String state = item.getState().toString();
+
+            switch (precondition.comparator()) {
+                case EQUALS:
+                    JRuleLog.debug(logger, context.getRuleName(), "Precondition comparison '{}' == '{}'", state,
+                            precondition.state());
+                    return state.equals(precondition.state());
+                case NOT_EQUALS:
+                    JRuleLog.debug(logger, context.getRuleName(), "Precondition comparison '{}' != '{}'", state,
+                            precondition.state());
+                    return !state.equals(precondition.state());
+                default:
+                    JRuleLog.warn(logger, context.getRuleName(), "Unsupported comparison operator {}",
+                            precondition.comparator());
+                    return false;
+
+            }
+
+        } catch (ItemNotFoundException e) {
+            JRuleLog.error(logger, context.getRuleName(), "Precondition item not found: {}", precondition.item());
+        }
+        return true; // For now
     }
 
     private synchronized static String getStackTraceAsString(Throwable throwable) {
@@ -496,5 +549,9 @@ public class JRuleEngine implements PropertyChangeListener {
 
     public void setConfig(@NonNull JRuleConfig config) {
         this.config = config;
+    }
+
+    public void setItemRegistry(ItemRegistry itemRegistry) {
+        this.itemRegistry = itemRegistry;
     }
 }
