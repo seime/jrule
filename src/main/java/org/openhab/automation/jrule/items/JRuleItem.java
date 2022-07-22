@@ -17,6 +17,8 @@ import java.util.Optional;
 
 import org.openhab.automation.jrule.exception.JRuleItemNotFoundException;
 import org.openhab.automation.jrule.internal.handler.JRuleEventHandler;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * The {@link JRuleItem} Items
@@ -24,6 +26,8 @@ import org.openhab.automation.jrule.internal.handler.JRuleEventHandler;
  * @author Joseph (Seaside) Hagberg - Initial contribution
  */
 public abstract class JRuleItem {
+
+    private final Logger logger = LoggerFactory.getLogger(JRuleItem.class);
 
     protected String itemName;
 
@@ -71,5 +75,29 @@ public abstract class JRuleItem {
 
     public boolean updatedSince(ZonedDateTime timestamp, String persistenceServiceId) {
         return JRulePersistenceExtensions.updatedSince(itemName, timestamp, persistenceServiceId);
+    }
+
+    /**
+     * Resend the command representing the historic state at the current timestamp, ie restore a switch to the same
+     * value it had at the given time
+     * 
+     * @param timestamp the timestamp to restore to
+     * @param skipIfStateIdentical if true, do not send command if current state is the same as the historic state
+     */
+    public void resendCommand(ZonedDateTime timestamp, boolean skipIfStateIdentical) {
+        Optional<String> stateAtTimestampOptional = JRulePersistenceExtensions.historicState(itemName, timestamp);
+        logger.debug("Item {} state at {} is {}", itemName, stateAtTimestampOptional, timestamp);
+        if (stateAtTimestampOptional.isPresent()) {
+            String stateAtTimestamp = stateAtTimestampOptional.get();
+            if (!JRuleEventHandler.get().getStringValue(itemName).equals(stateAtTimestamp) && !skipIfStateIdentical) {
+                JRuleEventHandler.get().sendCommand(itemName, stateAtTimestamp);
+            } else {
+                logger.info("Not resending command to {} as state {} is the same as it was at {}", itemName,
+                        stateAtTimestamp, timestamp);
+            }
+        } else {
+            logger.warn("Unable to resend command for item {} since there is no historic state available at {}",
+                    itemName, timestamp);
+        }
     }
 }
