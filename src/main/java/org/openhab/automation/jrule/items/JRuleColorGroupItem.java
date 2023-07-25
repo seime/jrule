@@ -47,11 +47,9 @@ public interface JRuleColorGroupItem extends JRuleColorItem, JRuleDimmerGroupIte
 
     default void sendCommand(JRuleHsbValue command) {
         JRuleEventHandler.get().sendCommand(getName(), command);
-        JRuleEventHandler.get().getGroupMemberItems(getName(), false).forEach(i -> i.sendUncheckedCommand(command));
     }
 
     default void postUpdate(JRuleHsbValue state) {
         JRuleEventHandler.get().postUpdate(getName(), state);
-        JRuleEventHandler.get().getGroupMemberItems(getName(), false).forEach(i -> i.postUncheckedUpdate(state));
     }
 }

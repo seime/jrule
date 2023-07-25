@@ -47,11 +47,9 @@ public interface JRuleLocationGroupItem extends JRuleLocationItem, JRuleGroupIte
 
     default void sendCommand(JRulePointValue command) {
         JRuleEventHandler.get().sendCommand(getName(), command);
-        JRuleEventHandler.get().getGroupMemberItems(getName(), false).forEach(i -> i.sendUncheckedCommand(command));
     }
 
     default void postUpdate(JRulePointValue state) {
         JRuleEventHandler.get().postUpdate(getName(), state);
-        JRuleEventHandler.get().getGroupMemberItems(getName(), false).forEach(i -> i.postUncheckedUpdate(state));
     }
 }

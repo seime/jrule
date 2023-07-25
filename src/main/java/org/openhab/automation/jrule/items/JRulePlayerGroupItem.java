@@ -49,21 +49,17 @@ public interface JRulePlayerGroupItem extends JRulePlayerItem, JRuleGroupItem<JR
 
     default void sendCommand(JRulePlayPauseValue command) {
         JRuleEventHandler.get().sendCommand(getName(), command);
-        JRuleEventHandler.get().getGroupMemberItems(getName(), false).forEach(i -> i.sendUncheckedCommand(command));
     }
 
     default void postUpdate(JRulePlayPauseValue state) {
         JRuleEventHandler.get().postUpdate(getName(), state);
-        JRuleEventHandler.get().getGroupMemberItems(getName(), false).forEach(i -> i.postUncheckedUpdate(state));
     }
 
     default void sendCommand(JRuleRewindFastforwardValue command) {
         JRuleEventHandler.get().sendCommand(getName(), command);
-        JRuleEventHandler.get().getGroupMemberItems(getName(), false).forEach(i -> i.sendUncheckedCommand(command));
     }
 
     default void sendCommand(JRuleNextPreviousValue command) {
         JRuleEventHandler.get().sendCommand(getName(), command);
-        JRuleEventHandler.get().getGroupMemberItems(getName(), false).forEach(i -> i.sendUncheckedCommand(command));
     }
 }
