@@ -76,6 +76,8 @@ import org.openhab.core.items.events.ItemEvent;
 import org.openhab.core.library.types.QuantityType;
 import org.openhab.core.persistence.PersistenceServiceRegistry;
 import org.openhab.core.scheduler.CronScheduler;
+import org.openhab.core.types.State;
+import org.openhab.core.types.UnDefType;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.slf4j.MDC;
@@ -285,37 +287,45 @@ public class JRuleEngine implements PropertyChangeListener {
             } catch (ItemNotFoundException e) {
                 throw new JRuleItemNotFoundException("Cannot find item for precondition", e);
             }
-            final String state = item.getState().toString();
-            if (context.getEq().isPresent() && context.getEq().filter(state::equals).isEmpty()) {
-                logDebug("precondition mismatch: {} = {}", state, context.getEq().get());
+            State state = item.getState();
+            final String stateAsString = state.toString();
+            if (context.getEq().isPresent() && context.getEq().filter(stateAsString::equals).isEmpty()) {
+                logDebug("precondition mismatch: {} = {}", stateAsString, context.getEq().get());
                 return false;
             }
-            if (context.getNeq().isPresent() && context.getNeq().filter(ref -> !state.equals(ref)).isEmpty()) {
-                logDebug("precondition mismatch: {} != {}", state, context.getNeq().get());
-                return false;
-            }
-            if (context.getLt().isPresent()
-                    && context.getLt().filter(ref -> QuantityType.valueOf(state).doubleValue() < ref).isEmpty()) {
-                logDebug("precondition mismatch: {} < {}", state, context.getLt().get());
-                return false;
-            }
-            if (context.getLte().isPresent()
-                    && context.getLte().filter(ref -> QuantityType.valueOf(state).doubleValue() <= ref).isEmpty()) {
-                logDebug("precondition mismatch: {} <= {}", state, context.getLte().get());
-                return false;
-            }
-            if (context.getGt().isPresent()
-                    && context.getGt().filter(ref -> QuantityType.valueOf(state).doubleValue() > ref).isEmpty()) {
-                logDebug("precondition mismatch: {} > {}", state, context.getGt().get());
-                return false;
-            }
-            if (context.getGte().isPresent()
-                    && context.getGte().filter(ref -> QuantityType.valueOf(state).doubleValue() >= ref).isEmpty()) {
-                logDebug("precondition mismatch: {} >= {}", state, context.getGte().get());
+            if (context.getNeq().isPresent() && context.getNeq().filter(ref -> !stateAsString.equals(ref)).isEmpty()) {
+                logDebug("precondition mismatch: {} != {}", stateAsString, context.getNeq().get());
                 return false;
             }
 
-            logDebug("precondition match: {} matches {}", state, context);
+            // No need to compare numbers if the state is not a number
+            if (state instanceof UnDefType) {
+                logDebug("precondition mismatch: {} cannot be compared as number", stateAsString);
+                return false;
+            }
+
+            if (context.getLt().isPresent() && context.getLt()
+                    .filter(ref -> QuantityType.valueOf(stateAsString).doubleValue() < ref).isEmpty()) {
+                logDebug("precondition mismatch: {} < {}", stateAsString, context.getLt().get());
+                return false;
+            }
+            if (context.getLte().isPresent() && context.getLte()
+                    .filter(ref -> QuantityType.valueOf(stateAsString).doubleValue() <= ref).isEmpty()) {
+                logDebug("precondition mismatch: {} <= {}", stateAsString, context.getLte().get());
+                return false;
+            }
+            if (context.getGt().isPresent() && context.getGt()
+                    .filter(ref -> QuantityType.valueOf(stateAsString).doubleValue() > ref).isEmpty()) {
+                logDebug("precondition mismatch: {} > {}", stateAsString, context.getGt().get());
+                return false;
+            }
+            if (context.getGte().isPresent() && context.getGte()
+                    .filter(ref -> QuantityType.valueOf(stateAsString).doubleValue() >= ref).isEmpty()) {
+                logDebug("precondition mismatch: {} >= {}", stateAsString, context.getGte().get());
+                return false;
+            }
+
+            logDebug("precondition match: {} matches {}", stateAsString, context);
             return true;
         });
     }
