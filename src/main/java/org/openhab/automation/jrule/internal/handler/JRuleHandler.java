@@ -297,8 +297,8 @@ public class JRuleHandler implements PropertyChangeListener {
             Class<?> cls = Class.forName(config.getGeneratedThingPackage() + ".JRuleThings", true, loader);
             cls.getDeclaredConstructor().newInstance();
             logger.info("Instantiated JRuleThings class");
-        } catch (ClassNotFoundException | IllegalAccessException | NoSuchMethodException | InstantiationException |
-                 InvocationTargetException | Error e) {
+        } catch (ClassNotFoundException | IllegalAccessException | NoSuchMethodException | InstantiationException
+                | InvocationTargetException | Error e) {
             logger.error("Could not instantiate JRuleThings file", e);
         }
 
@@ -307,8 +307,8 @@ public class JRuleHandler implements PropertyChangeListener {
             Class<?> cls = Class.forName(config.getGeneratedActionPackage() + ".JRuleActions", true, loader);
             cls.getDeclaredConstructor().newInstance();
             logger.info("Instantiated JRuleActions class");
-        } catch (ClassNotFoundException | IllegalAccessException | NoSuchMethodException | InstantiationException |
-                 InvocationTargetException | Error e) {
+        } catch (ClassNotFoundException | IllegalAccessException | NoSuchMethodException | InstantiationException
+                | InvocationTargetException | Error e) {
             logger.error("Could not instantiate JRuleActions file", e);
         }
 
