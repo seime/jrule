@@ -109,13 +109,13 @@ public class JRuleCompiler {
                                 jarEntryName);
                         loadClass(classLoader, relativePathToFullClassname(jarEntryName), createInstance);
                     }
-                } catch (IllegalArgumentException | SecurityException | IOException e) {
+                } catch (Error | IllegalArgumentException | SecurityException | IOException e) {
                     logError(e, "Error loading classes from jarfile {}", jarItem.getAbsolutePath());
                 }
                 // Best effort
             });
-        } catch (Exception e) {
-            logError(e, "Error loading classes from jarfile: {}");
+        } catch (Error | Exception e) {
+            logError(e, "Error loading classes from jarfile");
         }
     }
 
